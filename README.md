@@ -340,6 +340,7 @@ ros2 action send_goal /dock irobot_create_msgs/action/Dock "{}"
 | Robot's network (`create-XXXX`) isn't in the Wi-Fi list | The robot is joined to a router and isn't in AP mode | Hold both side buttons until the ring turns white, wait 30 seconds, refresh |
 | Solid red light ring | An error or low battery | Put it on its dock and restart the application from the robot's web page |
 | `action server /dock not available` (or docking skipped with a warning) | Robot firmware uses the older `DockServo` action type | Run `ros2 action list -t` to check. Dock by hand, or update the firmware |
+| `action server /drive_distance not available` right after a bag replay | The terminal is still on the replay's `ROS_DOMAIN_ID=77` | `export ROS_DOMAIN_ID=5`, or open a new terminal. Check with `echo $ROS_DOMAIN_ID` |
 | `ros2 bag record` says `unrecognized arguments` | Newer ROS 2 needs `--topics` before the topic names | `ros2 bag record -o name --topics /odom /tf` |
 | `ros2 action list` or `ros2 topic list` prints nothing | Stale ROS 2 discovery | `ros2 daemon stop`, then `ros2 topic list --spin-time 10` |
 
