@@ -1,5 +1,7 @@
 bump_and_go:
   ros__parameters:
-    forward_speed: 0.15
-    turn_speed: 0.8
-    turn_time: 2.0
+    forward_speed: 0.15   # m/s
+    turn_speed: 0.8       # rad/s
+    turn_time: 2.0        # seconds per turn (about 90 degrees at 0.8 rad/s)
+    lights: true          # color the light ring on a hit
+    sound: true           # beep on a hit

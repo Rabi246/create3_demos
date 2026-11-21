@@ -1,6 +1,10 @@
 drive_square:
   ros__parameters:
-    side_length: 0.5    # metres per side
-    forward_speed: 0.1  # m/s
-    turn_speed: 0.5     # rad/s
+    side_length: 0.2          # metres per side
+    forward_speed: 0.08       # m/s (maximum)
+    turn_speed: 0.4           # rad/s (maximum)
     sides: 4
+    min_forward_speed: 0.03   # m/s, slows to this near the end of a side
+    min_turn_speed: 0.15      # rad/s, slows to this near the end of a corner
+    odom_timeout: 1.0         # seconds without odometry before standing still
+    pause_time: 0.5           # seconds to pause after each side and corner
