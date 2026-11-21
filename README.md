@@ -8,6 +8,7 @@ Small ROS 2 (Python) demos for learning ROS 2 with an **iRobot Create 3**. The p
 | --- | --- |
 | `bump_and_go` | Drives forward. When the bumper or a cliff sensor triggers, it turns **away** from the side that was hit, shows a color on the light ring, and beeps. Sends a stop command on Ctrl+C. Tested on the robot. |
 | `action_mission` | Drives a square by sending goals to the robot's built-in action servers (`/drive_distance`, `/rotate_angle`, and optionally `/undock` and `/dock`). Reliable over Wi-Fi. Tested on the robot. |
+| `cancel_demo` | Asks the robot to drive 1 m, then **cancels** the goal after a few seconds (or when you press Enter) and shows the robot reporting `CANCELED`. Tested on the robot. |
 | `drive_square` | Drives a small square using `/odom` feedback. **Experimental**, see below. |
 
 Speeds, turn times and options are ROS 2 parameters (`config/*.yaml`), so you can change them without editing code.
@@ -25,6 +26,7 @@ create3_demos/
 ├── create3_demos/
 │   ├── action_mission.py            # the action_mission node
 │   ├── bump_and_go.py               # the bump_and_go node
+│   ├── cancel_demo.py               # the cancel_demo node
 │   └── drive_square.py              # the drive_square node
 ├── resource/create3_demos           # ament package marker
 ├── package.xml
@@ -254,6 +256,23 @@ On the robot, the square ran all 4 sides and 4 corners in order, and each step t
 
 **Docking with older firmware.** Robot firmware `G.5.3` names its docking action `DockServo` (the action type was renamed to `Dock` in later versions of `irobot_create_msgs`), so the `/dock` action doesn't match the types on a Lyrical computer. Check yours with `ros2 action list -t`. If `/dock` shows `irobot_create_msgs/action/DockServo`, `action_mission` logs a warning, skips docking, and carries on. Put the robot back on its dock by hand. To dock from code, update the robot's firmware (ask whoever manages the robot first), or build the older message definitions in a separate workspace.
 
+### cancel_demo
+
+Shows how to cancel an action goal while it runs. The node asks the robot to drive `distance` metres, then cancels the goal after `cancel_after` seconds, or sooner if you press Enter. The robot stops, and the action reports `CANCELED` instead of `SUCCEEDED`. Topics and services have no equivalent of this. The remaining distance it prints is the robot's last feedback message, and the robot only sends feedback every few seconds, so the real value is a bit lower.
+
+```bash
+ros2 run create3_demos cancel_demo
+```
+
+The robot needs about 1 m of clear floor in front of it and should not be on its dock (or add `-p undock_first:=true`).
+
+| Parameter | Default | Meaning |
+| --- | --- | --- |
+| `distance` | `1.0` | Metres the goal asks for |
+| `speed` | `0.1` | Maximum speed in m/s |
+| `cancel_after` | `4.0` | Seconds before it cancels by itself (`0` = only cancel with Enter) |
+| `undock_first` | `false` | Start by undocking |
+
 ### Recording and replaying with ros2 bag
 
 A **bag** records topics to a file while the robot runs, so you can play the run back later without the robot.
@@ -326,7 +345,7 @@ ros2 action send_goal /dock irobot_create_msgs/action/Dock "{}"
 
 ## Notes
 
-- `bump_and_go` (including the light ring and beeps) and `action_mission` (undock and the square) have been run on a real robot. Docking from code has not worked because of the firmware's older `DockServo` action. `drive_square` is experimental, as described above.
+- `bump_and_go` (including the light ring and beeps) and `action_mission` (undock and the square) and `cancel_demo` have been run on a real robot. Docking from code has not worked because of the firmware's older `DockServo` action. `drive_square` is experimental, as described above.
 - This was developed on a shared lab robot, so check with whoever manages yours before changing its Wi-Fi, Domain ID, RMW setting or firmware.
 - Updating the firmware (the robot's **Update** tab) wasn't done. The robot was on `G.5.3` and worked with ROS 2 Lyrical for topics and messages.
 
