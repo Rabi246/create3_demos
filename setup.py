@@ -34,6 +34,7 @@ setup(
             'drive_square = create3_demos.drive_square:main',
             'action_mission = create3_demos.action_mission:main',
             'cancel_demo = create3_demos.cancel_demo:main',
+            'wasd_teleop = create3_demos.wasd_teleop:main',
         ],
     },
 )

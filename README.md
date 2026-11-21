@@ -9,6 +9,7 @@ Small ROS 2 (Python) demos for learning ROS 2 with an **iRobot Create 3**. The p
 | `bump_and_go` | Drives forward. When the bumper or a cliff sensor triggers, it turns **away** from the side that was hit, shows a color on the light ring, and beeps. Sends a stop command on Ctrl+C. Tested on the robot. |
 | `action_mission` | Drives a square by sending goals to the robot's built-in action servers (`/drive_distance`, `/rotate_angle`, and optionally `/undock` and `/dock`). Reliable over Wi-Fi. Tested on the robot. |
 | `cancel_demo` | Asks the robot to drive 1 m, then **cancels** the goal after a few seconds (or when you press Enter) and shows the robot reporting `CANCELED`. Tested on the robot. |
+| `wasd_teleop` | Drive the robot from the keyboard with W A S D. It stops by itself when you let go of the keys. Tested on the robot. |
 | `drive_square` | Drives a small square using `/odom` feedback. **Experimental**, see below. |
 
 Speeds, turn times and options are ROS 2 parameters (`config/*.yaml`), so you can change them without editing code.
@@ -27,7 +28,8 @@ create3_demos/
 │   ├── action_mission.py            # the action_mission node
 │   ├── bump_and_go.py               # the bump_and_go node
 │   ├── cancel_demo.py               # the cancel_demo node
-│   └── drive_square.py              # the drive_square node
+│   ├── drive_square.py              # the drive_square node
+│   └── wasd_teleop.py               # the wasd_teleop node
 ├── resource/create3_demos           # ament package marker
 ├── package.xml
 ├── setup.py
@@ -256,6 +258,39 @@ On the robot, the square ran all 4 sides and 4 corners in order, and each step t
 
 **Docking with older firmware.** Robot firmware `G.5.3` names its docking action `DockServo` (the action type was renamed to `Dock` in later versions of `irobot_create_msgs`), so the `/dock` action doesn't match the types on a Lyrical computer. Check yours with `ros2 action list -t`. If `/dock` shows `irobot_create_msgs/action/DockServo`, `action_mission` logs a warning, skips docking, and carries on. Put the robot back on its dock by hand. To dock from code, update the robot's firmware (ask whoever manages the robot first), or build the older message definitions in a separate workspace.
 
+### wasd_teleop
+
+Drive the robot with the keyboard. It publishes speeds to `/cmd_vel`, like `bump_and_go`. Run it in a terminal and keep that terminal focused:
+
+```bash
+ros2 run create3_demos wasd_teleop
+```
+
+| Key | Action |
+| --- | --- |
+| `w` / `s` | Forward / backward |
+| `a` / `d` | Turn left / right |
+| `q` / `e` | Forward and left / forward and right |
+| `r` / `f` | Faster / slower |
+| space | Stop |
+| `x` | Quit |
+
+Hold a key to keep moving. When you let go, the robot stops by itself about `hold_time` seconds later, so it does not run away if the program dies. A single tap moves it for `first_hold` seconds. Ctrl+C also stops the robot.
+
+A held key is sent by the terminal as one press, a pause (about 0.6 s on many systems), then fast repeats. `first_hold` has to be longer than that pause, or the robot stops briefly in the middle of every hold. Repeats only need the short `hold_time`.
+
+| Parameter | Default | Meaning |
+| --- | --- | --- |
+| `linear_speed` | `0.15` | Forward speed in m/s (limited to 0.3) |
+| `angular_speed` | `0.8` | Turning speed in rad/s (limited to 1.5) |
+| `hold_time` | `0.3` | Seconds to keep moving after a key repeat (how quickly it stops when you let go) |
+| `first_hold` | `0.8` | Seconds to keep moving after a new key press (must be longer than the terminal's repeat delay) |
+| `publish_rate` | `20.0` | Commands per second |
+
+Example: `ros2 run create3_demos wasd_teleop --ros-args -p linear_speed:=0.1`
+
+With the default `safety_override: "none"` the robot limits how far it will back up near obstacles, so `s` may not move it every time.
+
 ### cancel_demo
 
 Shows how to cancel an action goal while it runs. The node asks the robot to drive `distance` metres, then cancels the goal after `cancel_after` seconds, or sooner if you press Enter. The robot stops, and the action reports `CANCELED` instead of `SUCCEEDED`. Topics and services have no equivalent of this. The remaining distance it prints is the robot's last feedback message, and the robot only sends feedback every few seconds, so the real value is a bit lower.
@@ -346,7 +381,7 @@ ros2 action send_goal /dock irobot_create_msgs/action/Dock "{}"
 
 ## Notes
 
-- `bump_and_go` (including the light ring and beeps) and `action_mission` (undock and the square) and `cancel_demo` have been run on a real robot. Docking from code has not worked because of the firmware's older `DockServo` action. `drive_square` is experimental, as described above.
+- `bump_and_go` (including the light ring and beeps) and `action_mission` (undock and the square), `cancel_demo` and `wasd_teleop` have been run on a real robot. Docking from code has not worked because of the firmware's older `DockServo` action. `drive_square` is experimental, as described above.
 - This was developed on a shared lab robot, so check with whoever manages yours before changing its Wi-Fi, Domain ID, RMW setting or firmware.
 - Updating the firmware (the robot's **Update** tab) wasn't done. The robot was on `G.5.3` and worked with ROS 2 Lyrical for topics and messages.
 
