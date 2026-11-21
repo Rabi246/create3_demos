@@ -7,6 +7,7 @@ Small ROS 2 (Python) demos for learning ROS 2 with an **iRobot Create 3**. The p
 | Node | What it does |
 | --- | --- |
 | `bump_and_go` | Drives forward. When the bumper or a cliff sensor triggers, it turns **away** from the side that was hit, shows a color on the light ring, and beeps. Sends a stop command on Ctrl+C. Tested on the robot. |
+| `action_mission` | Drives a square by sending goals to the robot's built-in action servers (`/drive_distance`, `/rotate_angle`, and optionally `/undock` and `/dock`). Reliable over Wi-Fi. Tested on the robot. |
 | `drive_square` | Drives a small square using `/odom` feedback. **Experimental**, see below. |
 
 Speeds, turn times and options are ROS 2 parameters (`config/*.yaml`), so you can change them without editing code.
@@ -14,12 +15,15 @@ Speeds, turn times and options are ROS 2 parameters (`config/*.yaml`), so you ca
 ```
 create3_demos/
 ├── config/
+│   ├── action_mission.yaml          # parameters for action_mission
 │   ├── bump_and_go.yaml             # parameters for bump_and_go
 │   └── drive_square.yaml            # parameters for drive_square
 ├── launch/
+│   ├── action_mission.launch.py     # starts action_mission with its YAML file
 │   ├── bump_and_go.launch.py        # starts bump_and_go with its YAML file
 │   └── drive_square.launch.py       # starts drive_square with its YAML file
 ├── create3_demos/
+│   ├── action_mission.py            # the action_mission node
 │   ├── bump_and_go.py               # the bump_and_go node
 │   └── drive_square.py              # the drive_square node
 ├── resource/create3_demos           # ament package marker
@@ -210,7 +214,40 @@ Known issue: over the lab's slow 2.4 GHz router, `/odom` arrives late and with g
 - It stands still if odometry stops arriving.
 - It pauses briefly after each side and corner.
 
-A more reliable approach for a laggy link is to use the robot's built-in `/drive_distance` and `/rotate_angle` actions, which run on the robot itself.
+For a reliable square over a laggy link, use `action_mission` instead (next section). It uses the robot's built-in actions, which run on the robot itself.
+
+### action_mission
+
+```bash
+ros2 launch create3_demos action_mission.launch.py
+```
+
+Instead of publishing speeds to `/cmd_vel` and watching `/odom`, this node sends the robot **goals** through ROS 2 actions and waits for the robot to report back. The robot measures the distance and angle itself, so Wi-Fi lag doesn't make the moves sloppy.
+
+The default mission is a square:
+
+1. `/drive_distance` forward `side_length` metres
+2. `/rotate_angle` 90 degrees to the left
+3. Repeat for `sides` sides (the last corner returns the robot to its starting heading)
+
+Optionally, it can start with `/undock` and finish with `/dock`. If any step fails (for example, the robot rejects a goal or a bump aborts a move), the mission stops and logs the reason. Ctrl+C cancels the goal that is running.
+
+The robot can start from anywhere on the floor. Put it in a clear area of about 1 m by 1 m, and keep Ctrl+C ready.
+
+| Parameter | Default | Meaning |
+| --- | --- | --- |
+| `side_length` | `0.3` | Metres per side |
+| `sides` | `4` | Number of sides |
+| `drive_speed` | `0.1` | Maximum forward speed in m/s |
+| `turn_speed` | `0.5` | Maximum turning speed in rad/s |
+| `undock_first` | `false` | Start by undocking (the robot must be on its dock) |
+| `dock_at_end` | `false` | Finish by docking (the robot must be able to see its dock) |
+| `pause_time` | `0.5` | Seconds to pause between steps |
+| `server_timeout` | `10.0` | Seconds to wait for the robot's action servers |
+
+Example: `ros2 run create3_demos action_mission --ros-args -p side_length:=0.2`
+
+On the robot, the square ran all 4 sides and 4 corners in order, and each step took about the same time. The `undock_first` and `dock_at_end` options have not been tested yet.
 
 ## Useful terminal commands
 
@@ -246,7 +283,7 @@ ros2 action send_goal /dock irobot_create_msgs/action/Dock "{}"
 
 ## Notes
 
-- `bump_and_go` (including the light ring and beeps) has been run on a real robot. `drive_square` is experimental, as described above.
+- `bump_and_go` (including the light ring and beeps) and `action_mission` (the square, without undock and dock) have been run on a real robot. `drive_square` is experimental, as described above.
 - This was developed on a shared lab robot, so check with whoever manages yours before changing its Wi-Fi, Domain ID, RMW setting or firmware.
 - Updating the firmware (the robot's **Update** tab) wasn't done. The robot was on `G.5.3` and worked with ROS 2 Lyrical for topics and messages.
 
