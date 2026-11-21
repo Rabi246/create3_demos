@@ -254,6 +254,41 @@ On the robot, the square ran all 4 sides and 4 corners in order, and each step t
 
 **Docking with older firmware.** Robot firmware `G.5.3` names its docking action `DockServo` (the action type was renamed to `Dock` in later versions of `irobot_create_msgs`), so the `/dock` action doesn't match the types on a Lyrical computer. Check yours with `ros2 action list -t`. If `/dock` shows `irobot_create_msgs/action/DockServo`, `action_mission` logs a warning, skips docking, and carries on. Put the robot back on its dock by hand. To dock from code, update the robot's firmware (ask whoever manages the robot first), or build the older message definitions in a separate workspace.
 
+### Recording and replaying with ros2 bag
+
+A **bag** records topics to a file while the robot runs, so you can play the run back later without the robot.
+
+Record while `action_mission` runs, using two terminals. Start the recorder first and wait for `All requested topics are subscribed`:
+
+```bash
+# terminal 1: recorder
+mkdir -p ~/bags && cd ~/bags
+ros2 bag record -o square_run --topics /odom /tf /tf_static /hazard_detection /battery_state
+
+# terminal 2: the mission
+ros2 run create3_demos action_mission --ros-args -p undock_first:=true
+```
+
+When the mission prints `mission finished`, press Ctrl+C once in terminal 1 and wait for it to finish writing. Then check the result with `ros2 bag info ~/bags/square_run`.
+
+- Newer ROS 2 versions need the `--topics` flag before the topic names. Without it, `ros2 bag record` says `unrecognized arguments`.
+- The folder name given to `-o` must not exist yet, so use a new name for each recording.
+- A 0.5 m square took about 85 s to record, including idle time, and the bag was about 2 MiB (`mcap` format).
+
+To replay it in RViz, use a different ROS domain so the replay cannot mix with a live robot:
+
+```bash
+# terminal A
+export ROS_DOMAIN_ID=77
+rviz2
+
+# terminal B
+export ROS_DOMAIN_ID=77
+ros2 bag play ~/bags/square_run --start-offset 18 --loop
+```
+
+In RViz set Fixed Frame to `odom`, add an Odometry display for `/odom`, and set its Reliability Policy to Best Effort. `--start-offset` skips idle time at the start, `--rate 2` plays at double speed, and `--loop` repeats. Keep bag files out of git (add `*.mcap` to `.gitignore`).
+
 ## Useful terminal commands
 
 ```bash
@@ -286,6 +321,7 @@ ros2 action send_goal /dock irobot_create_msgs/action/Dock "{}"
 | Robot's network (`create-XXXX`) isn't in the Wi-Fi list | The robot is joined to a router and isn't in AP mode | Hold both side buttons until the ring turns white, wait 30 seconds, refresh |
 | Solid red light ring | An error or low battery | Put it on its dock and restart the application from the robot's web page |
 | `action server /dock not available` (or docking skipped with a warning) | Robot firmware uses the older `DockServo` action type | Run `ros2 action list -t` to check. Dock by hand, or update the firmware |
+| `ros2 bag record` says `unrecognized arguments` | Newer ROS 2 needs `--topics` before the topic names | `ros2 bag record -o name --topics /odom /tf` |
 | `ros2 action list` or `ros2 topic list` prints nothing | Stale ROS 2 discovery | `ros2 daemon stop`, then `ros2 topic list --spin-time 10` |
 
 ## Notes
