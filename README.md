@@ -241,13 +241,15 @@ The robot can start from anywhere on the floor. Put it in a clear area of about 
 | `drive_speed` | `0.1` | Maximum forward speed in m/s |
 | `turn_speed` | `0.5` | Maximum turning speed in rad/s |
 | `undock_first` | `false` | Start by undocking (the robot must be on its dock) |
-| `dock_at_end` | `false` | Finish by docking (the robot must be able to see its dock) |
+| `dock_at_end` | `false` | Finish by docking (the robot must be able to see its dock). Skipped with a warning on older firmware, see below |
 | `pause_time` | `0.5` | Seconds to pause between steps |
 | `server_timeout` | `10.0` | Seconds to wait for the robot's action servers |
 
 Example: `ros2 run create3_demos action_mission --ros-args -p side_length:=0.2`
 
-On the robot, the square ran all 4 sides and 4 corners in order, and each step took about the same time. The `undock_first` and `dock_at_end` options have not been tested yet.
+On the robot, the square ran all 4 sides and 4 corners in order, and each step took about the same time. `undock_first` has also been tested: the robot rolled off its dock and then drove the square.
+
+**Docking with older firmware.** Robot firmware `G.5.3` names its docking action `DockServo` (the action type was renamed to `Dock` in later versions of `irobot_create_msgs`), so the `/dock` action doesn't match the types on a Lyrical computer. Check yours with `ros2 action list -t`. If `/dock` shows `irobot_create_msgs/action/DockServo`, `action_mission` logs a warning, skips docking, and carries on. Put the robot back on its dock by hand. To dock from code, update the robot's firmware (ask whoever manages the robot first), or build the older message definitions in a separate workspace.
 
 ## Useful terminal commands
 
@@ -280,10 +282,12 @@ ros2 action send_goal /dock irobot_create_msgs/action/Dock "{}"
 | `No executable found` | `entry_points` is missing in `setup.py` | Check that `bump_and_go` is listed under `console_scripts`, then rebuild |
 | Robot's network (`create-XXXX`) isn't in the Wi-Fi list | The robot is joined to a router and isn't in AP mode | Hold both side buttons until the ring turns white, wait 30 seconds, refresh |
 | Solid red light ring | An error or low battery | Put it on its dock and restart the application from the robot's web page |
+| `action server /dock not available` (or docking skipped with a warning) | Robot firmware uses the older `DockServo` action type | Run `ros2 action list -t` to check. Dock by hand, or update the firmware |
+| `ros2 action list` or `ros2 topic list` prints nothing | Stale ROS 2 discovery | `ros2 daemon stop`, then `ros2 topic list --spin-time 10` |
 
 ## Notes
 
-- `bump_and_go` (including the light ring and beeps) and `action_mission` (the square, without undock and dock) have been run on a real robot. `drive_square` is experimental, as described above.
+- `bump_and_go` (including the light ring and beeps) and `action_mission` (undock and the square) have been run on a real robot. Docking from code has not worked because of the firmware's older `DockServo` action. `drive_square` is experimental, as described above.
 - This was developed on a shared lab robot, so check with whoever manages yours before changing its Wi-Fi, Domain ID, RMW setting or firmware.
 - Updating the firmware (the robot's **Update** tab) wasn't done. The robot was on `G.5.3` and worked with ROS 2 Lyrical for topics and messages.
 

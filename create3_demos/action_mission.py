@@ -56,13 +56,18 @@ class ActionMission(Node):
                    ('rotate_angle', self.rotate_client)]
         if self.undock_first:
             clients.append(('undock', self.undock_client))
-        if self.dock_at_end:
-            clients.append(('dock', self.dock_client))
         for name, client in clients:
             if not client.wait_for_server(timeout_sec=self.server_timeout):
                 self.get_logger().error(
                     f'action server /{name} not available. Is the robot connected?')
                 return False
+        # Docking is optional: older robot firmware names this action DockServo,
+        # which does not match the Dock action type, so skip it instead of failing.
+        if self.dock_at_end and not self.dock_client.wait_for_server(timeout_sec=3.0):
+            self.get_logger().warning(
+                'the /dock action does not match the robot (older firmware uses '
+                'DockServo). Docking will be skipped; put the robot on its dock by hand.')
+            self.dock_at_end = False
         return True
 
     def send(self, client, goal, label):
