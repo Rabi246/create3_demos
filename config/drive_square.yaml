@@ -1,0 +1,6 @@
+drive_square:
+  ros__parameters:
+    side_length: 0.5    # metres per side
+    forward_speed: 0.1  # m/s
+    turn_speed: 0.5     # rad/s
+    sides: 4
