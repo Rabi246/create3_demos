@@ -6,22 +6,40 @@ Small ROS 2 (Python) demos for learning ROS 2 with an **iRobot Create 3**. The p
 
 | Node | What it does |
 | --- | --- |
-| `bump_and_go` | Drives forward and turns in place for a couple of seconds whenever the front bumper or a cliff sensor triggers. Sends a stop command on Ctrl+C. |
+| `bump_and_go` | Drives forward. When the bumper or a cliff sensor triggers, it turns **away** from the side that was hit, shows a color on the light ring, and beeps. Sends a stop command on Ctrl+C. Tested on the robot. |
+| `drive_square` | Drives a small square using `/odom` feedback. **Experimental**, see below. |
 
-Speeds and turn time are ROS 2 parameters (`config/bump_and_go.yaml`), so you can change them without editing code.
+Speeds, turn times and options are ROS 2 parameters (`config/*.yaml`), so you can change them without editing code.
 
 ```
 create3_demos/
-├── config/bump_and_go.yaml          # parameters
-├── launch/bump_and_go.launch.py     # starts the node with the YAML file
-├── create3_demos/bump_and_go.py     # the node
+├── config/
+│   ├── bump_and_go.yaml             # parameters for bump_and_go
+│   └── drive_square.yaml            # parameters for drive_square
+├── launch/
+│   ├── bump_and_go.launch.py        # starts bump_and_go with its YAML file
+│   └── drive_square.launch.py       # starts drive_square with its YAML file
+├── create3_demos/
+│   ├── bump_and_go.py               # the bump_and_go node
+│   └── drive_square.py              # the drive_square node
 ├── resource/create3_demos           # ament package marker
 ├── package.xml
 ├── setup.py
-└── setup.cfg
+├── setup.cfg
+├── LICENSE
+└── README.md
 ```
 
-The node subscribes to `/hazard_detection` and publishes `geometry_msgs/Twist` messages to `/cmd_vel` at 10 Hz. It only turns (it never backs up), because the robot's `safety_override` was `"none"`, which limits reversing to about an inch.
+`bump_and_go` subscribes to `/hazard_detection` and publishes `geometry_msgs/Twist` messages to `/cmd_vel` at 10 Hz. It only turns (it never backs up), because the robot's `safety_override` was `"none"`, which limits reversing to about an inch. On a hit it also publishes to `/cmd_lightring` and `/cmd_audio`:
+
+| Hit | Robot turns | Light ring | Beep |
+| --- | --- | --- | --- |
+| `bump_left`, `bump_front_left` | right | blue | 440 Hz |
+| `bump_right`, `bump_front_right` | left | green | 660 Hz |
+| `bump_front_center` | alternates left and right | magenta | 550 Hz |
+| a cliff sensor | alternates left and right | yellow | two falling notes |
+
+When a turn ends, the light ring goes back to the robot's own patterns. Hits that happen during a turn are ignored.
 
 ## Requirements
 
@@ -161,7 +179,7 @@ Or run the node directly and override a parameter:
 ros2 run create3_demos bump_and_go --ros-args -p forward_speed:=0.08
 ```
 
-Press the front bumper to test it. The node logs `hazard at bump_left, turning` (or `bump_right`) and spins away.
+Press the front bumper to test it. The node logs something like `hazard at bump_left (left), turning right`, the light ring changes color, and the robot beeps and turns away.
 
 ### Parameters
 
@@ -170,6 +188,29 @@ Press the front bumper to test it. The node logs `hazard at bump_left, turning` 
 | `forward_speed` | `0.15` | Forward speed in m/s |
 | `turn_speed` | `0.8` | Turning speed in rad/s |
 | `turn_time` | `2.0` | How long each turn lasts, in seconds (about 90 degrees at the defaults) |
+| `lights` | `true` | Color the light ring on a hit |
+| `sound` | `true` | Beep on a hit |
+
+Example: `ros2 run create3_demos bump_and_go --ros-args -p sound:=false -p forward_speed:=0.08`
+
+### drive_square (experimental)
+
+```bash
+ros2 launch create3_demos drive_square.launch.py
+```
+
+Drives forward `side_length` metres (default `0.2`), turns left 90 degrees using `/odom`, and repeats for `sides` sides (default `4`). It stops if a bumper or cliff sensor triggers. Parameters are in `config/drive_square.yaml`: `side_length`, `forward_speed`, `turn_speed`, `sides`, `min_forward_speed`, `min_turn_speed`, `odom_timeout` and `pause_time`.
+
+To watch it, run `rviz2`, set the **Fixed Frame** to `odom`, add a **TF** display, and add an **Odometry** display on `/odom` with **Reliability Policy** set to **Best Effort** and **Keep** set to `100`.
+
+Known issue: over the lab's slow 2.4 GHz router, `/odom` arrives late and with gaps. In early runs, some corners spun far past 90 degrees (a full extra turn in one case), so the square wasn't reliable. The current version adds the following protections, tested only in a simulation with delayed and dropped odometry, not yet confirmed on the robot:
+
+- It adds up small heading changes instead of comparing against the start heading, so the wrap-around at 180 degrees can't fool it.
+- It slows down near each target.
+- It stands still if odometry stops arriving.
+- It pauses briefly after each side and corner.
+
+A more reliable approach for a laggy link is to use the robot's built-in `/drive_distance` and `/rotate_angle` actions, which run on the robot itself.
 
 ## Useful terminal commands
 
@@ -205,10 +246,10 @@ ros2 action send_goal /dock irobot_create_msgs/action/Dock "{}"
 
 ## Notes
 
-- Only `bump_and_go` has been run on a real robot so far.
+- `bump_and_go` (including the light ring and beeps) has been run on a real robot. `drive_square` is experimental, as described above.
 - This was developed on a shared lab robot, so check with whoever manages yours before changing its Wi-Fi, Domain ID, RMW setting or firmware.
 - Updating the firmware (the robot's **Update** tab) wasn't done. The robot was on `G.5.3` and worked with ROS 2 Lyrical for topics and messages.
 
 ## License
 
-MIT, as declared in `package.xml`. A `LICENSE` file hasn't been added yet.
+MIT. See [LICENSE](LICENSE).
