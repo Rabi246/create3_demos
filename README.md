@@ -236,7 +236,7 @@ The robot can start from anywhere on the floor. Put it in a clear area of about 
 
 | Parameter | Default | Meaning |
 | --- | --- | --- |
-| `side_length` | `0.3` | Metres per side |
+| `side_length` | `0.5` | Metres per side |
 | `sides` | `4` | Number of sides |
 | `drive_speed` | `0.1` | Maximum forward speed in m/s |
 | `turn_speed` | `0.5` | Maximum turning speed in rad/s |
@@ -244,6 +244,9 @@ The robot can start from anywhere on the floor. Put it in a clear area of about 
 | `dock_at_end` | `false` | Finish by docking (the robot must be able to see its dock). Skipped with a warning on older firmware, see below |
 | `pause_time` | `0.5` | Seconds to pause between steps |
 | `server_timeout` | `10.0` | Seconds to wait for the robot's action servers |
+| `feedback_period` | `1.0` | Seconds between live progress messages while the robot moves (`0` turns them off) |
+
+While a move runs, the robot streams **feedback** and the node logs it, for example `0.18 m to go` or `45 degrees to go`. Action goals report progress this way, which topics and services can't do.
 
 Example: `ros2 run create3_demos action_mission --ros-args -p side_length:=0.2`
 

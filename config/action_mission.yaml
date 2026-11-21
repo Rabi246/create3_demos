@@ -1,6 +1,6 @@
 action_mission:
   ros__parameters:
-    side_length: 0.3        # metres per side
+    side_length: 0.5        # metres per side
     sides: 4
     drive_speed: 0.1        # m/s (maximum)
     turn_speed: 0.5         # rad/s (maximum)
@@ -8,3 +8,4 @@ action_mission:
     dock_at_end: false      # true = finish by docking (robot must be able to see the dock)
     pause_time: 0.5         # seconds to pause between steps
     server_timeout: 10.0    # seconds to wait for the robot's action servers
+    feedback_period: 1.0    # seconds between progress messages (0 = no progress messages)

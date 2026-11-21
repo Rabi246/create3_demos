@@ -11,7 +11,9 @@ robot GOALS and waits for the robot to report back:
     /dock            (optional, last)
 
 The robot measures distance and angle itself, so a slow or lossy Wi-Fi link
-does not make the moves sloppy. Ctrl+C cancels the goal that is running.
+does not make the moves sloppy. While a move runs, the robot streams FEEDBACK
+("0.12 m to go"), which this node logs about once a second. Ctrl+C cancels the
+goal that is running.
 """
 import math
 import time
@@ -28,7 +30,7 @@ class ActionMission(Node):
     def __init__(self):
         super().__init__('action_mission')
 
-        self.declare_parameter('side_length', 0.3)       # metres per side
+        self.declare_parameter('side_length', 0.5)       # metres per side
         self.declare_parameter('sides', 4)
         self.declare_parameter('drive_speed', 0.1)       # m/s (maximum)
         self.declare_parameter('turn_speed', 0.5)        # rad/s (maximum)
@@ -36,6 +38,7 @@ class ActionMission(Node):
         self.declare_parameter('dock_at_end', False)     # finish by docking
         self.declare_parameter('pause_time', 0.5)        # seconds between steps
         self.declare_parameter('server_timeout', 10.0)   # seconds to wait for servers
+        self.declare_parameter('feedback_period', 1.0)   # seconds between progress logs (0 = off)
         self.side_length = self.get_parameter('side_length').value
         self.sides = self.get_parameter('sides').value
         self.drive_speed = self.get_parameter('drive_speed').value
@@ -44,6 +47,7 @@ class ActionMission(Node):
         self.dock_at_end = self.get_parameter('dock_at_end').value
         self.pause_time = self.get_parameter('pause_time').value
         self.server_timeout = self.get_parameter('server_timeout').value
+        self.feedback_period = self.get_parameter('feedback_period').value
 
         self.undock_client = ActionClient(self, Undock, 'undock')
         self.dock_client = ActionClient(self, Dock, 'dock')
@@ -70,10 +74,36 @@ class ActionMission(Node):
             self.dock_at_end = False
         return True
 
-    def send(self, client, goal, label):
-        """Send one goal and wait for it to finish. Returns True if it succeeded."""
+    def make_feedback_callback(self, describe):
+        """Build a callback that logs the robot's progress, at most once per period."""
+        last_log = [0.0]   # a list so the callback can change it
+
+        def callback(feedback_msg):
+            now = time.monotonic()
+            if now - last_log[0] < self.feedback_period:
+                return
+            last_log[0] = now
+            # Progress messages are nice to have: a problem here must never stop the mission.
+            try:
+                text = describe(feedback_msg.feedback)
+            except (AttributeError, TypeError, ValueError) as error:
+                self.get_logger().warning(f'cannot read feedback ({error}); progress messages off')
+                self.feedback_period = 0.0
+                return
+            self.get_logger().info(f'  {text}')
+        return callback
+
+    def send(self, client, goal, label, describe=None):
+        """Send one goal and wait for it to finish. Returns True if it succeeded.
+
+        `describe` turns the robot's feedback message into a short text, e.g.
+        "0.12 m to go". Leave it out for goals with nothing useful to report.
+        """
         self.get_logger().info(label)
-        send_future = client.send_goal_async(goal)
+        feedback_cb = None
+        if describe is not None and self.feedback_period > 0.0:
+            feedback_cb = self.make_feedback_callback(describe)
+        send_future = client.send_goal_async(goal, feedback_callback=feedback_cb)
         rclpy.spin_until_future_complete(self, send_future)
         handle = send_future.result()
         if handle is None or not handle.accepted:
@@ -96,14 +126,18 @@ class ActionMission(Node):
         goal = DriveDistance.Goal()
         goal.distance = float(distance)
         goal.max_translation_speed = float(self.drive_speed)
-        return self.send(self.drive_client, goal, f'drive {distance} m')
+        return self.send(
+            self.drive_client, goal, f'drive {distance} m',
+            describe=lambda fb: f'{fb.remaining_travel_distance:.2f} m to go')
 
     def rotate(self, angle):
         goal = RotateAngle.Goal()
         goal.angle = float(angle)
         goal.max_rotation_speed = float(self.turn_speed)
-        return self.send(self.rotate_client, goal,
-                         f'rotate {math.degrees(angle):.0f} degrees')
+        return self.send(
+            self.rotate_client, goal, f'rotate {math.degrees(angle):.0f} degrees',
+            describe=lambda fb: (
+                f'{math.degrees(abs(fb.remaining_angle_travel)):.0f} degrees to go'))
 
     def run(self):
         if not self.wait_for_servers():
