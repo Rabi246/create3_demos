@@ -32,6 +32,7 @@ setup(
         'console_scripts': [
             'bump_and_go = create3_demos.bump_and_go:main',
             'drive_square = create3_demos.drive_square:main',
+            'action_mission = create3_demos.action_mission:main',
         ],
     },
 )
